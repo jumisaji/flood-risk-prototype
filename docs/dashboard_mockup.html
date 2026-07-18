@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>River Murray Flood Risk — Dashboard Mockup</title>
+<style>
+  :root{
+    --ink:#0f2438; --slate:#4a5b70; --muted:#7a8aa0;
+    --page:#eaeef4; --card:#ffffff; --line:#e2e8f1; --line2:#eef2f7;
+    --brand:#1f6feb; --brandink:#0c447c;
+    --low:#12a150; --mod:#e0982b; --high:#d64545;
+    --lowbg:#e6f5ec; --modbg:#fdf2df; --highbg:#fbe9e9;
+    --river:#5aa0e0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--page); color:var(--ink);
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1180px; margin:0 auto; padding:18px 20px 40px;}
+
+  /* Header */
+  .top{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px;}
+  .brand{display:flex; align-items:center; gap:12px;}
+  .logo{width:40px; height:40px; border-radius:11px; background:var(--brand); display:flex; align-items:center; justify-content:center;}
+  .brand h1{font-size:17px; margin:0; font-weight:600; letter-spacing:-.01em;}
+  .brand .sub{font-size:12px; color:var(--muted); margin-top:1px;}
+  .toprt{display:flex; align-items:center; gap:10px;}
+  .chip{display:flex; align-items:center; gap:7px; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:7px 11px; font-size:12.5px; color:var(--slate);}
+  .shield{display:flex; align-items:center; gap:7px; background:#eaf3ff; border:1px solid #cfe1fb; color:var(--brandink); border-radius:9px; padding:7px 11px; font-size:12.5px; font-weight:600;}
+  .avatar{width:22px; height:22px; border-radius:50%; background:#dbe7f7; color:var(--brandink); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;}
+  .dot-live{width:8px; height:8px; border-radius:50%; background:var(--low);}
+
+  /* Sub bar */
+  .subbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
+  .tabs{display:inline-flex; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:3px;}
+  .tab{border:0; background:transparent; font:inherit; font-size:13px; color:var(--slate); padding:6px 15px; border-radius:8px; cursor:pointer;}
+  .tab.active{background:var(--brand); color:#fff; font-weight:600;}
+  .catch{font-size:12.5px; color:var(--muted);}
+  .catch b{color:var(--slate); font-weight:600;}
+
+  /* Grid */
+  .grid{display:grid; grid-template-columns:1.62fr 1fr; gap:16px; align-items:start;}
+  .col{display:flex; flex-direction:column; gap:16px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px;}
+  .card h2{font-size:13px; font-weight:600; margin:0 0 12px; letter-spacing:.01em; color:var(--ink); display:flex; align-items:center; justify-content:space-between;}
+  .card h2 .hint{font-size:11.5px; color:var(--muted); font-weight:400;}
+
+  /* Legend */
+  .legend{display:flex; gap:14px;}
+  .legend span{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--slate);}
+  .sw{width:10px; height:10px; border-radius:50%;}
+
+  .mapwrap{position:relative; border-radius:10px; overflow:hidden; background:#f4f8fc; border:1px solid var(--line2);}
+  .station-label{font-size:11px; fill:var(--slate); font-weight:500;}
+  .marker{cursor:pointer;}
+  .marker circle.core{transition:r .15s ease;}
+  .mapfoot{display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11.5px; color:var(--muted);}
+
+  /* Selected station */
+  .stn-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;}
+  .stn-name{font-size:18px; font-weight:600;}
+  .stn-coord{font-size:11.5px; color:var(--muted);}
+  .gauge-row{display:flex; align-items:center; gap:16px; margin-top:4px;}
+  .gauge{flex:0 0 auto; position:relative; width:190px; height:120px;}
+  .gauge .pct{position:absolute; left:0; right:0; top:58px; text-align:center;}
+  .gauge .pct b{font-size:34px; font-weight:700; letter-spacing:-.02em;}
+  .gauge .pct span{display:block; font-size:11px; color:var(--muted); margin-top:-2px;}
+  .band-pill{display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px;}
+  .metaline{font-size:12px; color:var(--slate); margin-top:12px;}
+  .unc{margin-top:14px;}
+  .unc .lab{display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-bottom:5px;}
+  .unc-track{position:relative; height:10px; border-radius:6px; background:var(--line2); overflow:hidden;}
+  .unc-range{position:absolute; top:0; bottom:0; background:#cfe1fb;}
+  .unc-mark{position:absolute; top:-3px; width:3px; height:16px; border-radius:2px; background:var(--brand);}
+
+  /* SHAP */
+  .shap-row{display:flex; align-items:center; gap:10px; margin:9px 0; font-size:12.5px;}
+  .shap-name{flex:0 0 128px; color:var(--slate);}
+  .shap-bararea{flex:1; position:relative; height:16px;}
+  .shap-mid{position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; background:var(--line);}
+  .shap-bar{position:absolute; top:2px; height:12px; border-radius:3px;}
+  .shap-val{flex:0 0 40px; text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); font-size:11.5px;}
+  .shap-key{display:flex; gap:16px; margin-top:12px; padding-top:11px; border-top:1px solid var(--line2); font-size:11px; color:var(--muted);}
+  .shap-key span{display:flex; align-items:center; gap:6px;}
+
+  /* Alert */
+  .alert-status{display:flex; align-items:center; gap:10px; padding:11px 13px; border-radius:10px; font-size:12.5px; margin-bottom:13px;}
+  .alert-pending{background:var(--modbg); color:#8a5a0b; border:1px solid #f0dcae;}
+  .alert-sent{background:var(--lowbg); color:#0c6b39; border:1px solid #bfe6cd;}
+  .recip{display:flex; justify-content:space-between; font-size:12px; color:var(--slate); margin:7px 0;}
+  .recip .muted{color:var(--muted);}
+  .btnrow{display:flex; gap:9px; margin-top:14px;}
+  .btn{flex:1; border:0; font:inherit; font-size:13px; font-weight:600; padding:11px 14px; border-radius:10px; cursor:pointer;}
+  .btn-primary{background:var(--brand); color:#fff;}
+  .btn-primary:hover{background:#175fd0;}
+  .btn-primary:disabled{background:#b9c9e6; cursor:default;}
+  .btn-ghost{flex:0 0 auto; background:#f2f5f9; color:var(--slate); border:1px solid var(--line);}
+  .audit{display:flex; align-items:center; gap:7px; margin-top:12px; font-size:11px; color:var(--muted);}
+
+  .ftr{margin-top:22px; text-align:center; font-size:11px; color:var(--muted);}
+  svg{display:block;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="top">
+    <div class="brand">
+      <div class="logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2.5C12 2.5 5.5 10 5.5 15a6.5 6.5 0 0 0 13 0C18.5 10 12 2.5 12 2.5Z" fill="#fff"/><path d="M9 15.5a3 3 0 0 0 3 3" stroke="#1f6feb" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h1>River Murray Flood Risk</h1>
+        <div class="sub">SES &amp; Local Council decision support · ITA602 prototype</div>
+      </div>
+    </div>
+    <div class="toprt">
+      <div class="shield">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" stroke="#0c447c" stroke-width="1.7" fill="#dbeafe"/><path d="M9 12l2 2 4-4" stroke="#0c447c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Human-authorised alerts
+      </div>
+      <div class="chip"><span class="avatar">JN</span> Operator: J. Nakato</div>
+      <div class="chip"><span class="dot-live"></span> Live · 09:42</div>
+    </div>
+  </div>
+
+  <!-- Sub bar -->
+  <div class="subbar">
+    <div class="tabs">
+      <button class="tab" data-w="24">24h</button>
+      <button class="tab active" data-w="48">48h</button>
+      <button class="tab" data-w="72">72h</button>
+    </div>
+    <div class="catch">Catchment: <b>Lower Murray, South Australia</b> · 8 gauging stations</div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="grid">
+
+    <!-- Map -->
+    <div class="card">
+      <h2>Catchment overview
+        <span class="legend">
+          <span><span class="sw" style="background:var(--low)"></span>Low</span>
+          <span><span class="sw" style="background:var(--mod)"></span>Moderate</span>
+          <span><span class="sw" style="background:var(--high)"></span>High</span>
+        </span>
+      </h2>
+      <div class="mapwrap">
+        <svg id="map" viewBox="0 0 720 460" width="100%" height="auto" role="img" aria-label="Map of River Murray stations coloured by flood risk">
+          <rect width="720" height="460" fill="#f4f8fc"/>
+          <path d="M40 40 Q120 30 180 70 T340 90 Q470 110 520 60 T700 40 L700 130 Q560 150 470 130 T300 150 Q170 140 120 200 T60 300 L40 300 Z" fill="#eef4ea" opacity=".6"/>
+          <path id="river" d="M708 96 C640 108 604 150 560 150 C500 150 470 120 430 128 C380 138 360 118 360 118 C360 118 348 150 340 200 C332 250 316 286 300 320 C286 350 268 392 250 430"
+                fill="none" stroke="var(--river)" stroke-width="7" stroke-linecap="round" opacity=".85"/>
+          <path d="M430 128 C400 150 372 168 360 210" fill="none" stroke="var(--river)" stroke-width="4.5" stroke-linecap="round" opacity=".6"/>
+          <g id="markers"></g>
+        </svg>
+      </div>
+      <div class="mapfoot">
+        <span>8 stations monitored · sources: BoM, SILO, DEW</span>
+        <span>Click a station to inspect</span>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="col">
+
+      <!-- Selected station -->
+      <div class="card">
+        <h2>Selected station <span class="hint" id="win-label">Next 48 hours</span></h2>
+        <div class="stn-head">
+          <div class="stn-name" id="stn-name">Renmark</div>
+          <div class="stn-coord" id="stn-coord">A4260504 · 34.17°S, 140.75°E</div>
+        </div>
+        <div class="gauge-row">
+          <div class="gauge">
+            <svg width="190" height="120" viewBox="0 0 190 120">
+              <path d="M18 108 A77 77 0 0 1 172 108" fill="none" stroke="#eef2f7" stroke-width="16" stroke-linecap="round"/>
+              <path id="gauge-val" d="M18 108 A77 77 0 0 1 172 108" fill="none" stroke="var(--high)" stroke-width="16" stroke-linecap="round"/>
+            </svg>
+            <div class="pct"><b id="gauge-pct">72%</b><span>flood probability</span></div>
+          </div>
+          <div>
+            <span class="band-pill" id="band-pill">High risk</span>
+            <div class="metaline" id="trend">▲ Rising · +14% since 06:00</div>
+          </div>
+        </div>
+        <div class="unc">
+          <div class="lab"><span>Uncertainty band (90% interval)</span><span id="unc-text">63% – 81%</span></div>
+          <div class="unc-track">
+            <div class="unc-range" id="unc-range" style="left:63%; width:18%;"></div>
+            <div class="unc-mark" id="unc-mark" style="left:72%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SHAP -->
+      <div class="card">
+        <h2>Why this score <span class="hint">SHAP contribution</span></h2>
+        <div id="shap"></div>
+        <div class="shap-key">
+          <span><span class="sw" style="background:var(--high); border-radius:2px"></span>Increases risk</span>
+          <span><span class="sw" style="background:var(--brand); border-radius:2px"></span>Decreases risk</span>
+        </div>
+      </div>
+
+      <!-- Alert -->
+      <div class="card">
+        <h2>Alert authorisation</h2>
+        <div class="alert-status alert-pending" id="alert-status">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span id="alert-text">Awaiting human authorisation</span>
+        </div>
+        <div class="recip"><span class="muted">Recipients</span><span>Renmark SES · Berri-Barmera Council</span></div>
+        <div class="recip"><span class="muted">Channel</span><span>Email (SendGrid) · SMS descoped</span></div>
+        <div class="btnrow">
+          <button class="btn btn-primary" id="auth-btn">Authorise &amp; dispatch alert</button>
+          <button class="btn btn-ghost" id="dismiss-btn">Dismiss</button>
+        </div>
+        <div class="audit">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span id="audit-text">Audit log #A-2291 · tamper-evident · retained per State Records Act 1997 (SA)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="ftr">Prototype mock-up for ITA602 (Figure 4). Not for operational flood-warning use.</div>
+</div>
+
+<script>
+const BAND = {
+  Low:{c:getVar('--low'), bg:getVar('--lowbg'), tx:'#0c6b39', label:'Low risk'},
+  Moderate:{c:getVar('--mod'), bg:getVar('--modbg'), tx:'#8a5a0b', label:'Moderate risk'},
+  High:{c:getVar('--high'), bg:getVar('--highbg'), tx:'#a12b2b', label:'High risk'},
+};
+function getVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function bandOf(p){return p>=0.66?'High':p>=0.33?'Moderate':'Low';}
+
+// Station data: map position + base 48h probability + uncertainty half-width + SHAP factors
+const STATIONS = [
+  {name:'Renmark',       id:'A4260504', coord:'34.17°S, 140.75°E', x:700, y:96,  p:0.72, u:0.09, trend:'▲ Rising · +14% since 06:00',
+    shap:[['7-day rainfall',0.9],['Antecedent Precip. Index',0.7],['River level',0.55],['Soil moisture',0.3],['Upstream flow',-0.35]]},
+  {name:'Berri',         id:'A4260505', coord:'34.28°S, 140.60°E', x:560, y:150, p:0.61, u:0.10, trend:'▲ Rising · +9% since 06:00',
+    shap:[['7-day rainfall',0.75],['River level',0.6],['Antecedent Precip. Index',0.45],['Soil moisture',0.25],['Upstream flow',-0.2]]},
+  {name:'Loxton',        id:'A4260512', coord:'34.45°S, 140.57°E', x:360, y:205, p:0.48, u:0.11, trend:'▲ Rising · +6% since 06:00',
+    shap:[['River level',0.6],['7-day rainfall',0.5],['Antecedent Precip. Index',0.35],['Soil moisture',0.2],['Upstream flow',-0.3]]},
+  {name:'Waikerie',      id:'A4260517', coord:'34.18°S, 139.98°E', x:430, y:128, p:0.44, u:0.10, trend:'→ Steady since 06:00',
+    shap:[['7-day rainfall',0.55],['River level',0.4],['Antecedent Precip. Index',0.35],['Soil moisture',0.2],['Upstream flow',-0.25]]},
+  {name:'Morgan',        id:'A4260522', coord:'34.03°S, 139.49°E', x:360, y:118, p:0.38, u:0.12, trend:'→ Steady since 06:00',
+    shap:[['River level',0.5],['7-day rainfall',0.4],['Antecedent Precip. Index',0.3],['Soil moisture',0.15],['Upstream flow',-0.35]]},
+  {name:'Blanchetown',   id:'A4260533', coord:'34.35°S, 139.62°E', x:330, y:250, p:0.29, u:0.10, trend:'▼ Easing · -4% since 06:00',
+    shap:[['River level',0.45],['7-day rainfall',0.3],['Antecedent Precip. Index',0.25],['Soil moisture',0.12],['Upstream flow',-0.4]]},
+  {name:'Mannum',        id:'A4260540', coord:'34.91°S, 139.31°E', x:300, y:320, p:0.22, u:0.09, trend:'▼ Easing · -5% since 06:00',
+    shap:[['River level',0.35],['7-day rainfall',0.25],['Antecedent Precip. Index',0.2],['Soil moisture',0.1],['Upstream flow',-0.45]]},
+  {name:'Murray Bridge', id:'A4260550', coord:'35.12°S, 139.27°E', x:250, y:430, p:0.18, u:0.08, trend:'→ Steady since 06:00',
+    shap:[['River level',0.3],['7-day rainfall',0.2],['Antecedent Precip. Index',0.18],['Soil moisture',0.1],['Upstream flow',-0.5]]},
+];
+
+let winFactor = 1.0;      // 48h baseline
+let selected = 0;
+let alertSent = false;
+
+// ---- Map markers ----
+const mk = document.getElementById('markers');
+STATIONS.forEach((s,i)=>{
+  const p = clamp(s.p*winFactor);
+  const b = BAND[bandOf(p)];
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','marker'); g.dataset.i=i;
+  g.innerHTML =
+    `<circle class="halo" cx="${s.x}" cy="${s.y}" r="13" fill="${b.c}" opacity="0.16"/>
+     <circle class="core" cx="${s.x}" cy="${s.y}" r="7" fill="${b.c}" stroke="#fff" stroke-width="2"/>
+     <text class="station-label" x="${s.x + (s.x>620?-10:12)}" y="${s.y+4}" text-anchor="${s.x>620?'end':'start'}">${s.name}</text>`;
+  g.addEventListener('click',()=>select(i));
+  mk.appendChild(g);
+});
+
+function clamp(v){return Math.max(0,Math.min(1,v));}
+const GAUGE_LEN = 242; // path length of the semicircle arc (approx, set precisely below)
+const gaugeValEl = document.getElementById('gauge-val');
+gaugeValEl.style.strokeDasharray = gaugeValEl.getTotalLength();
+const REAL_LEN = gaugeValEl.getTotalLength();
+
+function select(i){
+  selected = i;
+  const s = STATIONS[i];
+  const p = clamp(s.p*winFactor);
+  const bandName = bandOf(p);
+  const b = BAND[bandName];
+
+  document.getElementById('stn-name').textContent = s.name;
+  document.getElementById('stn-coord').textContent = `${s.id} · ${s.coord}`;
+  document.getElementById('gauge-pct').textContent = Math.round(p*100)+'%';
+  gaugeValEl.setAttribute('stroke', b.c);
+  gaugeValEl.style.strokeDashoffset = REAL_LEN*(1-p);
+  document.getElementById('trend').textContent = s.trend;
+
+  const pill = document.getElementById('band-pill');
+  pill.textContent = b.label; pill.style.background=b.bg; pill.style.color=b.tx;
+
+  const lo = Math.round(clamp(p-s.u)*100), hi = Math.round(clamp(p+s.u)*100);
+  document.getElementById('unc-text').textContent = `${lo}% – ${hi}%`;
+  document.getElementById('unc-range').style.left = lo+'%';
+  document.getElementById('unc-range').style.width = (hi-lo)+'%';
+  document.getElementById('unc-mark').style.left = Math.round(p*100)+'%';
+
+  // SHAP
+  const maxAbs = Math.max(...s.shap.map(f=>Math.abs(f[1])));
+  document.getElementById('shap').innerHTML = s.shap.map(([name,v])=>{
+    const w = Math.abs(v)/maxAbs*48; // % of half-width
+    const pos = v>=0;
+    const color = pos?'var(--high)':'var(--brand)';
+    const style = pos?`left:50%; width:${w}%; background:${color}`:`right:50%; width:${w}%; background:${color}`;
+    return `<div class="shap-row">
+      <div class="shap-name">${name}</div>
+      <div class="shap-bararea"><div class="shap-mid"></div><div class="shap-bar" style="${style}"></div></div>
+      <div class="shap-val">${pos?'+':''}${v.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+
+  // highlight markers
+  document.querySelectorAll('.marker').forEach((g,j)=>{
+    g.querySelector('.core').setAttribute('r', j===i?'9.5':'7');
+    g.querySelector('.halo').setAttribute('opacity', j===i?'0.30':'0.16');
+  });
+
+  resetAlert(bandName);
+}
+
+function refreshMarkers(){
+  STATIONS.forEach((s,i)=>{
+    const p=clamp(s.p*winFactor); const b=BAND[bandOf(p)];
+    const g=document.querySelectorAll('.marker')[i];
+    g.querySelector('.core').setAttribute('fill',b.c);
+    g.querySelector('.halo').setAttribute('fill',b.c);
+  });
+}
+
+// ---- Forecast window tabs ----
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const w=t.dataset.w;
+    winFactor = w==='24'?0.82 : w==='48'?1.0 : 1.12;
+    document.getElementById('win-label').textContent = `Next ${w} hours`;
+    refreshMarkers(); select(selected);
+  });
+});
+
+// ---- Alert gate ----
+function resetAlert(bandName){
+  alertSent=false;
+  const st=document.getElementById('alert-status');
+  const btn=document.getElementById('auth-btn');
+  st.className='alert-status alert-pending';
+  document.getElementById('alert-text').textContent =
+    bandName==='Low' ? 'No alert proposed at this level' : 'Awaiting human authorisation';
+  btn.disabled = bandName==='Low';
+  btn.textContent='Authorise & dispatch alert';
+  document.getElementById('audit-text').textContent='Audit log #A-2291 · tamper-evident · retained per State Records Act 1997 (SA)';
+}
+document.getElementById('auth-btn').addEventListener('click',()=>{
+  if(alertSent) return;
+  alertSent=true;
+  const st=document.getElementById('alert-status');
+  st.className='alert-status alert-sent';
+  document.getElementById('alert-text').textContent='Alert dispatched · 09:43, authorised by J. Nakato';
+  document.getElementById('auth-btn').textContent='Alert dispatched';
+  document.getElementById('auth-btn').disabled=true;
+  document.getElementById('audit-text').textContent='Audit log #A-2292 · signed by J. Nakato · State Records Act 1997 (SA)';
+});
+document.getElementById('dismiss-btn').addEventListener('click',()=>resetAlert(bandOf(clamp(STATIONS[selected].p*winFactor))));
+
+select(0);
+</script>
+</body>
+</html>

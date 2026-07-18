@@ -1,0 +1,10 @@
+# Normalise line endings so the repo is not polluted by CRLF/LF churn
+# (this folder syncs through Google Drive on Windows).
+* text=auto eol=lf
+
+# Treat these as binary — never touch their bytes.
+*.joblib binary
+*.png binary
+*.pdf binary
+*.ipynb -text
+*.csv text eol=lf
