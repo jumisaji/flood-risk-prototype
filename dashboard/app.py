@@ -221,6 +221,7 @@ with st.sidebar:
 # ---- Header ----
 h1, h2 = st.columns([2.2, 1])
 with h1:
+    st.markdown("")
     st.markdown("### 🌊 River Murray Flood Risk")
     st.markdown("<span class='muted'>SES &amp; Local Council decision support · ITA602 prototype</span>",
                 unsafe_allow_html=True)
