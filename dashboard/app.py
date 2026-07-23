@@ -28,6 +28,7 @@ from pathlib import Path
 
 import altair as alt
 import folium
+import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
@@ -71,8 +72,8 @@ MODEL_FILES = {
         "notebooks/logistic_regression_real.joblib",
     ],
     "Random Forest": [
+        "models/random_forest.joblib",
         "notebooks/Random_Forest.joblib",
-        "models/best_model.joblib",
     ],
 }
 
@@ -120,10 +121,65 @@ def load_history():
     return FALLBACK_LEVELS, FALLBACK_BASELINE
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_api_models(api_url):
+    """Model names offered by the backend's GET /models. None if unavailable.
+
+    The dropdown is driven by this list when the API is reachable, but the
+    prediction, uncertainty band and explainability card still use the joblib
+    loaded locally, because those need the model object itself.
+    """
+    if not api_url:
+        return None
+    try:
+        r = requests.get(api_url.rstrip("/") + "/models", timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, dict):
+            data = data.get("models", [])
+        names = [d.get("name", d.get("id")) if isinstance(d, dict) else str(d) for d in data]
+        return [n for n in names if n] or None
+    except Exception:
+        return None
+
+
+def final_estimator(model):
+    """The estimator itself, unwrapping a Pipeline if there is one."""
+    return model.steps[-1][1] if hasattr(model, "steps") else model
+
+
+def _pre_transform(model, frame):
+    """Run the pipeline's pre-processing steps (e.g. StandardScaler) over a frame."""
+    if hasattr(model, "steps"):
+        for _, step in model.steps[:-1]:
+            frame = step.transform(frame)
+    return frame
+
+
 def coef_map(model):
-    if model is not None and hasattr(model, "coef_"):
-        return {f: float(model.coef_[0][i]) for i, f in enumerate(FEATURES)}
+    est = final_estimator(model) if model is not None else None
+    if est is not None and hasattr(est, "coef_"):
+        return {f: float(est.coef_[0][i]) for i, f in enumerate(FEATURES)}
     return FALLBACK_COEF
+
+
+def signed_contributions(model, feats, baseline):
+    """Per-feature contribution for a linear model, or None if the model is not linear.
+
+    The Logistic Regression is a Pipeline with a StandardScaler, so its coefficients
+    live in scaled space. Both the current point and the baseline are pushed through
+    the same scaler before the difference is taken, otherwise the contributions are
+    off by the scaling factor.
+    """
+    est = final_estimator(model) if model is not None else None
+    if est is None or not hasattr(est, "coef_"):
+        return None
+    x = pd.DataFrame([[feats[f] for f in FEATURES]], columns=FEATURES)
+    b = pd.DataFrame([[baseline[f] for f in FEATURES]], columns=FEATURES)
+    xs = np.asarray(_pre_transform(model, x)).ravel()
+    bs = np.asarray(_pre_transform(model, b)).ravel()
+    coefs = est.coef_[0]
+    return {f: float(coefs[i] * (xs[i] - bs[i])) for i, f in enumerate(FEATURES)}
 
 
 def features_from_levels(levels):
@@ -223,8 +279,8 @@ st.markdown("""
 
 models = load_models()
 if not models:
-    st.error("No trained model found in the repo. Make sure notebooks/logistic_regression_real.joblib "
-             "and/or notebooks/Random_Forest.joblib exist.")
+    st.error("No trained model found in the repo. Run the notebooks to create "
+             "models/logistic_regression.joblib and/or models/random_forest.joblib.")
     st.stop()
 
 base_levels, baseline = load_history()
@@ -235,20 +291,29 @@ except Exception:
 
 with st.sidebar:
     st.header("Controls")
-    model_choice = st.selectbox("Model", list(models.keys()), index=0)
-    model = models[model_choice]
-    scenario = st.radio("River condition", ["Recent (actual)", "Rising river", "Flood watch"])
-    offset = st.slider("Level offset (m)", -0.30, 1.50, 0.0, 0.05)
     api_url = st.text_input("API URL (optional)", value=default_api,
                             placeholder="https://flood-risk-api.onrender.com")
-    st.caption("Blank = model bundled in the repo.")
+
+    # The dropdown is populated from GET /models when the backend is reachable,
+    # and falls back to whatever joblib files are in the repo. Either way the
+    # prediction below uses the locally loaded model object.
+    api_models = fetch_api_models(api_url)
+    options = [n for n in (api_models or []) if n in models] or list(models.keys())
+    model_choice = st.selectbox("Model", options, index=0)
+    model = models[model_choice]
+    st.caption(f"Model list from API GET /models ({len(api_models)} offered)"
+               if api_models else "Model list from the joblib files in the repo.")
+
+    scenario = st.radio("River condition", ["Recent (actual)", "Rising river", "Flood watch"])
+    offset = st.slider("Level offset (m)", -0.30, 1.50, 0.0, 0.05)
     with st.expander("About the model"):
         if model_choice == "Logistic Regression":
             st.write(f"Logistic Regression on Murray Bridge river levels. 'Flood' = level at/above "
                      f"{TRAIN_RISK_THRESHOLD_M} m (0.80 quantile). Horizons extrapolate the recent trend.")
         else:
-            st.write(f"Random Forest (400 trees) on Murray Bridge river levels. 'Flood' = level at/above "
-                     f"{TRAIN_RISK_THRESHOLD_M} m (0.80 quantile). Horizons extrapolate the recent trend.")
+            st.write(f"Random Forest (400 trees, max depth 10) on Murray Bridge river levels. 'Flood' = "
+                     f"level at/above {TRAIN_RISK_THRESHOLD_M} m (0.80 quantile). Trained on the "
+                     f"chronological split from common.py. Horizons extrapolate the recent trend.")
 
 # ---- Header ----
 h1, h2 = st.columns([2.2, 1])
@@ -330,13 +395,14 @@ with right:
 
     # Card 2 — explainability (adapts to the selected model)
     with st.container(border=True):
-        if hasattr(model, "coef_"):
-            coefs = coef_map(model)
+        contribs = signed_contributions(model, feats, baseline)
+        estimator = final_estimator(model)
+        if contribs is not None:
             st.markdown("<div class='card-title'>Why this score</div>"
                         "<div class='muted'>per-feature contribution (exact for logistic regression)</div>",
                         unsafe_allow_html=True)
             contrib = pd.DataFrame([{"feature": FEATURE_LABEL[f],
-                                     "contribution": round(coefs[f] * (feats[f] - baseline[f]), 3)}
+                                     "contribution": round(contribs[f], 3)}
                                     for f in FEATURES])
             contrib["direction"] = contrib["contribution"].apply(
                 lambda v: "Increases risk" if v >= 0 else "Decreases risk")
@@ -351,12 +417,12 @@ with right:
             ).properties(height=132)
             zero = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color="#c3ccd8").encode(x="x:Q")
             st.altair_chart(zero + bars, use_container_width=True)
-        elif hasattr(model, "feature_importances_"):
+        elif hasattr(estimator, "feature_importances_"):
             st.markdown("<div class='card-title'>Why this score</div>"
-                        "<div class='muted'>feature importance (Random Forest — magnitude only, not signed)</div>",
+                        "<div class='muted'>feature importance (Random Forest, magnitude only, not signed)</div>",
                         unsafe_allow_html=True)
             importances = pd.DataFrame([{"feature": FEATURE_LABEL[f],
-                                         "importance": round(float(model.feature_importances_[i]), 3)}
+                                         "importance": round(float(estimator.feature_importances_[i]), 3)}
                                         for i, f in enumerate(FEATURES)])
             bars = alt.Chart(importances).mark_bar(color="#1f6feb").encode(
                 x=alt.X("importance:Q", title=None),
