@@ -1,0 +1,6 @@
+{
+  "logistic_regression": { "F1": 0.793, "MCC": 0.732, "RMSE": 0.304, "Brier": 0.092, "NSE": 0.492 },
+  "random_forest":       { "F1": 0.932, "MCC": 0.910, "RMSE": 0.174, "Brier": 0.030, "NSE": 0.833 },
+  "_baseline":           { "name": "Persistence baseline", "F1": 0.796, "MCC": 0.732 },
+  "_note": "Chronological split (common.py). Regenerate from the evaluation notebook; copy to docs/metrics.json."
+}
