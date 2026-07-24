@@ -47,6 +47,13 @@ FEATURE_LABEL = {
 }
 BAND_HEX = {"Low": "#12a150", "Moderate": "#e0982b", "High": "#d64545"}
 BAND_COLOR = {"Low": "green", "Moderate": "orange", "High": "red"}
+# Colour-blind-safe band metadata: every band carries an icon + light tint + dark
+# text so meaning never depends on colour alone.
+BAND_META = {
+    "Low":      {"hex": "#12a150", "bg": "#e6f5ec", "tx": "#0c6b39", "icon": "✓", "advice": "no action needed"},
+    "Moderate": {"hex": "#e0982b", "bg": "#fdf2df", "tx": "#8a5a0b", "icon": "◆", "advice": "monitor closely"},
+    "High":     {"hex": "#d64545", "bg": "#fbe9e9", "tx": "#a12b2b", "icon": "⚠", "advice": "operator review recommended"},
+}
 
 MODELLED = {"name": "Murray Bridge", "id": "A4261162", "lat": -35.12, "lon": 139.27}
 CONTEXT_STATIONS = [
@@ -300,6 +307,32 @@ def band_bar(lo, hi, p):
     </div>"""
 
 
+def trend_of(levels):
+    """Direction of the recent series: returns (label, key)."""
+    if len(levels) < 4:
+        return "▬ Steady", "steady"
+    recent = levels[-7:]
+    delta = recent[-1] - recent[0]
+    if delta > 0.03:
+        return "▲ Rising", "rising"
+    if delta < -0.03:
+        return "▼ Easing", "falling"
+    return "▬ Steady", "steady"
+
+
+def spark_svg(levels, color):
+    """A tiny inline sparkline of the recent level series."""
+    pts = list(levels[-14:]) or [0, 0]
+    if len(pts) < 2:
+        pts = pts * 2
+    lo, hi = min(pts), max(pts)
+    rng = (hi - lo) or 1.0
+    n = len(pts)
+    coords = " ".join(f"{i/(n-1)*120:.0f},{22 - (v-lo)/rng*20:.1f}" for i, v in enumerate(pts))
+    return (f'<svg width="100%" height="26" viewBox="0 0 120 26" preserveAspectRatio="none">'
+            f'<polyline points="{coords}" fill="none" stroke="{color}" stroke-width="2"/></svg>')
+
+
 # --------------------------------------------------------------------------
 st.set_page_config(page_title="River Murray Flood Risk", page_icon="🌊",
                    layout="wide", initial_sidebar_state="collapsed")
@@ -315,6 +348,12 @@ st.markdown("""
   .card-title {font-size:13px;font-weight:600;color:#0f2438;margin-bottom:2px}
   .muted {color:#7a8aa0;font-size:11px}
   .row {display:flex;justify-content:space-between;font-size:12px;color:#4a5b70;margin:2px 0}
+  /* Responsive: stack columns on narrow screens (tablet/phone). */
+  @media (max-width: 720px){
+    div[data-testid="stHorizontalBlock"]{flex-wrap:wrap;}
+    div[data-testid="stHorizontalBlock"] > div{min-width:100% !important;}
+    .block-container{padding-left:.6rem;padding-right:.6rem;}
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -433,22 +472,35 @@ with left:
             st.altair_chart((line + rule).properties(height=150), use_container_width=True)
 
 with right:
-    # Card 1 — selected station
+    # Decision-first verdict banner (the focal point), then supporting detail.
+    bm = BAND_META[band]
+    tlabel, tdir = trend_of(levels)
+    tword = {"rising": "rising", "falling": "easing", "steady": "steady"}[tdir]
+    st.markdown(
+        f"<div style='border-radius:13px;padding:14px 16px;border-left:7px solid {bm['hex']};"
+        f"background:{bm['bg']};color:{bm['tx']};display:flex;justify-content:space-between;"
+        f"align-items:center;gap:12px;flex-wrap:wrap'>"
+        f"<div><div style='font-size:22px;font-weight:700;display:flex;align-items:center;gap:8px'>"
+        f"{bm['icon']} {band} risk</div>"
+        f"<div style='font-size:12px;margin-top:2px;opacity:.85'>{MODELLED['name']} · {tword} · {bm['advice']}</div></div>"
+        f"<div style='text-align:right'><div style='font-size:34px;font-weight:800;line-height:1'>{prob*100:.0f}%</div>"
+        f"<div style='font-size:10px;opacity:.8'>flood probability · next {horizon}</div></div></div>",
+        unsafe_allow_html=True)
+
     with st.container(border=True):
-        st.markdown(f"<div class='card-title'>Selected station: {MODELLED['name']}</div>"
-                    f"<div class='muted'>{MODELLED['id']} · 35.12°S, 139.27°E · next {horizon}</div>",
-                    unsafe_allow_html=True)
-        g1, g2 = st.columns([1.3, 1])
-        with g1:
-            st.markdown(gauge_svg(prob, BAND_HEX[band]), unsafe_allow_html=True)
-        with g2:
-            st.markdown(
-                f"<div style='margin-top:26px'><span class='badge' "
-                f"style='background:{BAND_HEX[band]};color:#fff'>{band} risk</span></div>"
-                f"<div class='muted' style='margin-top:6px'>latest {levels[-1]:.2f} m "
-                f"({levels[-1]-TRAIN_RISK_THRESHOLD_M:+.2f} m vs threshold)</div>",
-                unsafe_allow_html=True)
-        st.markdown(f"<div class='row'><span>Uncertainty band (±5 cm gauge error)</span>"
+        d1, d2, d3 = st.columns([1, 1, 1])
+        with d1:
+            st.markdown(gauge_svg(prob, bm["hex"]), unsafe_allow_html=True)
+        with d2:
+            st.markdown(f"<div class='muted'>Trend</div>"
+                        f"<div style='font-size:14px;font-weight:700'>{tlabel}</div>"
+                        f"{spark_svg(levels, bm['hex'])}", unsafe_allow_html=True)
+        with d3:
+            st.markdown(f"<div class='muted'>Latest level</div>"
+                        f"<div style='font-size:14px;font-weight:700'>{levels[-1]:.2f} m</div>"
+                        f"<div class='muted'>{levels[-1]-TRAIN_RISK_THRESHOLD_M:+.2f} m vs threshold</div>",
+                        unsafe_allow_html=True)
+        st.markdown(f"<div class='row' style='margin-top:8px'><span>Uncertainty band (±5 cm gauge error)</span>"
                     f"<b>{blo*100:.0f}% – {bhi*100:.0f}%</b></div>{band_bar(blo, bhi, prob)}",
                     unsafe_allow_html=True)
 
@@ -460,7 +512,7 @@ with right:
             st.markdown("<div class='card-title'>Why this score</div>"
                         "<div class='muted'>per-feature contribution (exact for logistic regression)</div>",
                         unsafe_allow_html=True)
-            contrib = pd.DataFrame([{"feature": FEATURE_LABEL[f],
+            contrib = pd.DataFrame([{"feature": ("▲ " if contribs[f] >= 0 else "▼ ") + FEATURE_LABEL[f],
                                      "contribution": round(contribs[f], 3)}
                                     for f in FEATURES])
             contrib["direction"] = contrib["contribution"].apply(
@@ -492,34 +544,52 @@ with right:
         else:
             st.caption("No explainability view available for this model.")
 
-    # Card 3 — alert authorisation
+    # Card 3 — alert authorisation (deliberate two-step confirm)
     with st.container(border=True):
         st.markdown("<div class='card-title'>Alert authorisation</div>", unsafe_allow_html=True)
-        if "alert_sent" not in st.session_state:
-            st.session_state.alert_sent = False
+        if "alert_state" not in st.session_state:
+            st.session_state.alert_state = "pending"
+        state = st.session_state.alert_state
+
         if band == "Low":
             st.markdown("<div class='row' style='background:#f2f5f9;padding:6px 9px;border-radius:7px'>"
-                        "No alert proposed at this level</div>", unsafe_allow_html=True)
-        elif st.session_state.alert_sent:
+                        "No alert proposed at this level</div>"
+                        "<div class='muted' style='margin-top:8px'>Audit log #A-2291 · tamper-evident · "
+                        "retained per State Records Act 1997 (SA)</div>", unsafe_allow_html=True)
+        elif state == "sent":
             st.markdown(f"<div class='row' style='background:#e6f5ec;color:#0c6b39;padding:6px 9px;"
-                        f"border-radius:7px'>Alert dispatched · {datetime.now().strftime('%H:%M')} "
-                        f"· authorised by J. Sanchez</div>", unsafe_allow_html=True)
-        else:
+                        f"border-radius:7px'>✓ Alert dispatched · {datetime.now().strftime('%H:%M')} "
+                        f"· authorised by J. Sanchez</div>"
+                        "<div class='row'><span class='muted'>Delivered</span>"
+                        "<span>2 recipients · email</span></div>", unsafe_allow_html=True)
+            if st.button("Reset", use_container_width=True):
+                st.session_state.alert_state = "pending"
+                st.rerun()
+            st.markdown("<div class='muted'>Audit log #A-2292 · signed by J. Sanchez · "
+                        "retained per State Records Act 1997 (SA)</div>", unsafe_allow_html=True)
+        elif state == "confirm":
+            st.markdown(f"<div class='row' style='background:#fbe9e9;color:#a12b2b;padding:6px 9px;"
+                        f"border-radius:7px'>Confirm dispatch of a {band} flood alert?</div>"
+                        "<div class='row'><span class='muted'>To</span>"
+                        "<span>Murray Bridge SES · Rural City Council</span></div>", unsafe_allow_html=True)
+            c1, c2 = st.columns([2, 1])
+            if c1.button("Confirm dispatch", type="primary", use_container_width=True):
+                st.session_state.alert_state = "sent"
+                st.rerun()
+            if c2.button("Cancel", use_container_width=True):
+                st.session_state.alert_state = "pending"
+                st.rerun()
+            st.markdown("<div class='muted'>This action is logged against your operator ID.</div>",
+                        unsafe_allow_html=True)
+        else:  # pending
             st.markdown("<div class='row' style='background:#fdf2df;color:#8a5a0b;padding:6px 9px;"
-                        "border-radius:7px'>⚠ Awaiting human authorisation</div>", unsafe_allow_html=True)
-        st.markdown("<div class='row'><span class='muted'>Recipients</span>"
-                    "<span>Murray Bridge SES · Rural City Council</span></div>"
-                    "<div class='row'><span class='muted'>Channel</span>"
-                    "<span>Email (SendGrid) · SMS descoped</span></div>", unsafe_allow_html=True)
-        b1, b2 = st.columns([2, 1])
-        if b1.button("Authorise & dispatch alert", type="primary",
-                     disabled=(band == "Low" or st.session_state.alert_sent),
-                     use_container_width=True):
-            st.session_state.alert_sent = True
-            st.rerun()
-        if b2.button("Dismiss", use_container_width=True):
-            st.session_state.alert_sent = False
-            st.rerun()
-        audit = "#A-2292 · signed by J. Sanchez" if st.session_state.alert_sent else "#A-2291 · tamper-evident"
-        st.markdown(f"<div class='muted'>Audit log {audit} · retained per State Records Act 1997 (SA)</div>",
-                    unsafe_allow_html=True)
+                        "border-radius:7px'>⚠ Awaiting human authorisation</div>"
+                        "<div class='row'><span class='muted'>Recipients</span>"
+                        "<span>Murray Bridge SES · Rural City Council</span></div>"
+                        "<div class='row'><span class='muted'>Channel</span>"
+                        "<span>Email (SendGrid) · SMS descoped</span></div>", unsafe_allow_html=True)
+            if st.button("Authorise & dispatch alert", type="primary", use_container_width=True):
+                st.session_state.alert_state = "confirm"
+                st.rerun()
+            st.markdown("<div class='muted'>Audit log #A-2291 · tamper-evident · "
+                        "retained per State Records Act 1997 (SA)</div>", unsafe_allow_html=True)
