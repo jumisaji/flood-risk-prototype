@@ -13,8 +13,11 @@ Layout (single screen, no scrolling):
                 3) alert authorisation (human-in-the-loop + audit log)
 
 Honesty notes:
-- Only Murray Bridge (A4261162) has a trained model. Other stations are shown
-  as context markers, not predictions.
+- Only Murray Bridge (A4261162) has a trained model.
+- Morgan (A4260554) has a real daily series (Water Data SA, 2009-2026) but its
+  flood events are all historical, so it is shown as level monitoring (current
+  level vs its own threshold), not a validated prediction.
+- The remaining stations are context markers with no data yet.
 - 24/48/72h horizons extrapolate the recent level trend, then score the model.
 - Two models are available: Logistic Regression (Manuela) and Random Forest
   (Ghale). Card 2 adapts automatically: signed feature contributions for the
@@ -51,9 +54,15 @@ CONTEXT_STATIONS = [
     {"name": "Berri", "lat": -34.2833, "lon": 140.60},
     {"name": "Loxton", "lat": -34.45, "lon": 140.57},
     {"name": "Waikerie", "lat": -34.18, "lon": 139.98},
-    {"name": "Morgan", "lat": -34.03, "lon": 139.49},
     {"name": "Blanchetown", "lat": -34.35, "lon": 139.62},
     {"name": "Mannum", "lat": -34.91, "lon": 139.31},
+]
+
+# Stations with a real daily series but no validated model -> shown as level
+# monitoring: current level vs the station's own 0.80-quantile threshold.
+MONITORED_STATIONS = [
+    {"name": "Morgan", "id": "A4260554", "lat": -34.03, "lon": 139.49,
+     "file": "morgan_river_level.csv"},
 ]
 
 FALLBACK_LEVELS = [0.725, 0.689, 0.731, 0.661, 0.653, 0.647, 0.616, 0.604, 0.654,
@@ -119,6 +128,38 @@ def load_history():
     except Exception:
         pass
     return FALLBACK_LEVELS, FALLBACK_BASELINE
+
+
+@st.cache_data
+def load_monitored():
+    """Level status for stations with real data but no validated model.
+
+    Reads the Water Data SA 'Bulk Export' format (Morgan), collapses to one
+    reading per day, and bands the latest level against the station's own
+    0.80-quantile threshold. No model, no prediction — just monitoring.
+    """
+    here = Path(__file__).resolve().parent
+    out = []
+    for s in MONITORED_STATIONS:
+        p = here.parent / "data" / s["file"]
+        try:
+            df = pd.read_csv(p, skiprows=5, usecols=[0, 1], names=["datetime", "level"])
+            df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+            df["level"] = pd.to_numeric(df["level"], errors="coerce")
+            df = df.dropna().sort_values("datetime")
+            df["datetime"] = df["datetime"].dt.normalize()
+            df = df.groupby("datetime", as_index=False)["level"].last()
+            if len(df) < 8:
+                continue
+            latest = float(df["level"].iloc[-1])
+            threshold = float(df["level"].quantile(0.80))
+            band = "High" if latest >= threshold else "Moderate" if latest >= 0.9 * threshold else "Low"
+            out.append({**s, "latest": latest, "threshold": threshold, "band": band,
+                        "recent": df["level"].tail(30).round(3).tolist(),
+                        "asof": df["datetime"].iloc[-1].date().isoformat()})
+        except Exception:
+            pass
+    return out
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -352,18 +393,36 @@ with left:
             "<span style='color:#12a150'>●</span> Low "
             "<span style='color:#e0982b'>●</span> Moderate "
             "<span style='color:#d64545'>●</span> High "
-            "<span style='color:#9aa6bd'>●</span> No model</div>", unsafe_allow_html=True)
+            "&nbsp;<b>◯</b> monitored "
+            "<span style='color:#9aa6bd'>●</span> no data</div>", unsafe_allow_html=True)
         fmap = folium.Map(location=[-34.6, 139.9], zoom_start=7, tiles="CartoDB positron")
         for s in CONTEXT_STATIONS:
             folium.CircleMarker([s["lat"], s["lon"]], radius=6, color="#9aa6bd", fill=True,
                                 fill_color="#9aa6bd", fill_opacity=0.8,
-                                tooltip=f"{s['name']} — context only (no trained model)").add_to(fmap)
+                                tooltip=f"{s['name']} — context only (no data yet)").add_to(fmap)
+        monitored = load_monitored()
+        for s in monitored:
+            folium.CircleMarker([s["lat"], s["lon"]], radius=9, color="#ffffff", weight=2,
+                                fill=True, fill_color=BAND_COLOR[s["band"]], fill_opacity=0.9,
+                                tooltip=(f"{s['name']} (monitored): {s['band']} · "
+                                         f"{s['latest']:.2f} m vs {s['threshold']:.2f} m threshold "
+                                         f"· as of {s['asof']}")).add_to(fmap)
         folium.CircleMarker([MODELLED["lat"], MODELLED["lon"]], radius=12, color=BAND_COLOR[band],
                             fill=True, fill_color=BAND_COLOR[band], fill_opacity=0.9,
-                            tooltip=f"{MODELLED['name']}: {band} ({prob*100:.0f}%)").add_to(fmap)
+                            tooltip=f"{MODELLED['name']} (modelled): {band} ({prob*100:.0f}%)").add_to(fmap)
         st_folium(fmap, height=395, use_container_width=True, returned_objects=[])
-        st.markdown("<div class='muted'>8 stations shown · modelled: Murray Bridge · "
-                    "sources: BoM, SILO, DEW</div>", unsafe_allow_html=True)
+        n_total = len(CONTEXT_STATIONS) + len(monitored) + 1
+        mon_names = ", ".join(s["name"] for s in monitored) or "—"
+        st.markdown(f"<div class='muted'>{n_total} stations · modelled: Murray Bridge · "
+                    f"monitored: {mon_names} · sources: BoM, DEW, Water Data SA</div>",
+                    unsafe_allow_html=True)
+        if monitored:
+            chips = " ".join(
+                f"<span class='badge' style='background:{BAND_HEX[s['band']]};color:#fff'>"
+                f"{s['name']} {s['latest']:.2f} m · {s['band']}</span>" for s in monitored)
+            st.markdown("<div style='margin-top:6px;font-size:11px'>"
+                        "<span class='muted'>Level monitoring (latest vs own threshold): </span>"
+                        f"{chips}</div>", unsafe_allow_html=True)
         with st.expander("30-day level trend"):
             tdf = pd.DataFrame({"days ago": list(range(-len(levels) + 1, 1)), "level (m)": levels})
             line = alt.Chart(tdf).mark_line(point=False, color="#1f6feb").encode(
