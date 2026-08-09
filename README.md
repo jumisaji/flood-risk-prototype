@@ -52,7 +52,28 @@ The architecture diagram from the project report will be added here.
 
 ## Project Status
 
-This project is currently under development as a prototype for an AI-based flood risk prediction system in South Australia.
+Current Stage: Final Integration and Deployment (Week 11)
+
+The project has completed the main stages of data preparation, model training, hyperparameter tuning, and ensemble integration. The backend API and React dashboard are currently deployed for demonstration purposes, and the team is finalising usability testing, technical documentation, and the public demo.
+
+Completed:
+Data collection and preprocessing
+Feature engineering
+Training and evaluation of Logistic Regression, Random Forest, XGBoost, and Ensemble models
+Ensemble model integration
+FastAPI backend implementation
+React dashboard development
+GitHub repository structure and documentation
+
+In Progress:
+Final deployment validation
+Usability walkthrough and demo rehearsal
+Final report editing and APA formatting
+Planned for Final Submission
+Public deployment links 
+Final technical documentation
+Complete evaluation and comparison results
+Presentation and demonstration materials
 
 ## Model Evaluation
 
