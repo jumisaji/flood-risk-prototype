@@ -54,6 +54,25 @@ The architecture diagram from the project report will be added here.
 
 This project is currently under development as a prototype for an AI-based flood risk prediction system in South Australia.
 
+## Model Evaluation
+xychart-beta
+    title "F1-Score Comparison"
+    x-axis ["Logistic Regression", "Random Forest", "XGBoost", "Ensemble"]
+    y-axis "F1 Score" 0.79 --> 0.81
+    bar [0.800, 0.799, 0.802, 0.806]
+Performance Summary
+Model	F1	MCC	RMSE	Brier	NSE
+Logistic Regression	0.800	0.741	0.300	0.090	0.505
+Random Forest	0.799	0.734	0.264	0.070	0.618
+XGBoost	0.802	0.738	0.276	0.076	0.582
+Ensemble	0.806	0.743	0.271	0.074	0.596
+
+The Ensemble model achieved the highest **F1-score (0.806)** and **Matthews Correlation Coefficient (0.743)**, indicating the best overall balance between precision and recall as well as the strongest classification performance across both classes.
+
+Although **Random Forest** obtained the lowest **RMSE (0.264)**, the lowest **Brier Score (0.070)**, and the highest **Nash–Sutcliffe Efficiency (0.618)**, the Ensemble model was selected as the final deployment model because it provided the most balanced and reliable classification performance for flood-risk prediction.
+
+The comparison also shows that all machine learning models outperformed the **Persistence Baseline**, confirming the value of the proposed AI-based approach for flood-risk assessment.
+
 ## Data & Licensing
 The flood-risk prototype uses publicly available environmental and hydrological data relevant to South Australia, particularly the River Murray catchment region.
 
