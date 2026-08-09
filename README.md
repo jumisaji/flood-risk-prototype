@@ -85,6 +85,9 @@ Although **Random Forest** obtained the lowest **RMSE (0.264)**, the lowest **Br
 
 The comparison also shows that all machine learning models outperformed the **Persistence Baseline**, confirming the value of the proposed AI-based approach for flood-risk assessment.
 
+## Project URL:
+ADD PROJECT URL
+
 ## Data & Licensing
 The flood-risk prototype uses publicly available environmental and hydrological data relevant to South Australia, particularly the River Murray catchment region.
 
