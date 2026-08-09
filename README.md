@@ -78,7 +78,8 @@ BOM data are provided under the Creative Commons Attribution 4.0 International (
 
 This project is an academic prototype developed for educational purposes. No proprietary or confidential data were used, and all external datasets remain subject to their respective licences and terms of use.
 
-##References
+## References
+
 Bureau of Meteorology. (2026). Climate Data Online. Australian Government. https://www.bom.gov.au/climate/data/
 
 Chawla, N. V., Bowyer, K. W., Hall, L. O., & Kegelmeyer, W. P. (2002). SMOTE: Synthetic minority over-sampling technique. Journal of Artificial Intelligence Research, 16, 321–357. https://doi.org/10.1613/jair.953
