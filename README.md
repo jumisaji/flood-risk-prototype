@@ -42,8 +42,7 @@ db/                 Supabase schema for the alert audit log
 .github/workflows/  CI tests and the Render keep-alive job
 ```
 
-Both dashboards talk to the same API through one versioned contract
-(`docs/API_CONTRACT.md`), so they tell the same story.
+Both dashboards are clients of the same API, defined once in docs/API_CONTRACT.md. Fixing that contract early is what let the model, the backend and the two front ends be built in parallel without blocking each other.
 
 ### API
 
