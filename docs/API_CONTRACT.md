@@ -20,7 +20,7 @@ models, and the **LSTM** scores a raw daily-level series on `/predict_series`.
 { "status": "ok",
   "features": ["level_lag1","level_lag2","level_roll7","level_change3"],
   "default_model": "ensemble",
-  "available_models": ["ensemble","logistic_regression","random_forest","xgboost"],
+  "available_models": ["ensemble","logistic_regression","random_forest","xgboost","lstm"],
   "train_risk_threshold_m": 0.806 }
 ```
 
@@ -39,8 +39,15 @@ entries still being evaluated report `null` until that file is updated.
     "metrics": { "F1": 0.799, "MCC": 0.734, "RMSE": 0.264, "Brier": 0.070, "NSE": 0.618 } },
   { "id": "xgboost", "name": "XGBoost",
     "available": true, "default": false,
-    "metrics": { "F1": 0.802, "MCC": 0.738, "RMSE": 0.276, "Brier": 0.076, "NSE": 0.582 } } ]
+    "metrics": { "F1": 0.802, "MCC": 0.738, "RMSE": 0.276, "Brier": 0.076, "NSE": 0.582 } },
+  { "id": "lstm", "name": "LSTM",
+    "available": true, "default": false,
+    "metrics": null } ]
 ```
+
+The LSTM reports `null` because it is evaluated in its own notebook rather than by
+`eval_metrics.py` — see the metrics note at the end. Front-ends should handle a
+`null` metrics block rather than assuming every model carries one.
 
 ### `POST /predict`
 Body — the four features. Omit `model` to use the default (the ensemble), or name
@@ -141,12 +148,6 @@ the first broken link.
    `"xgboost": {"name": "XGBoost", "file": "xgboost.joblib", "kind": "tabular"}`
 4. Add its metrics to `docs/metrics.json`.
 
-## One thing to settle first (coordination)
-
-1. **`docs/metrics.json`** should be written by the evaluation notebook, not
-   hand-maintained, so `/models` never drifts from the real numbers. A sample is
-   in `metrics.sample.json` — copy it to `docs/metrics.json` for now.
-
 ## Metrics note (chronological split from common.py)
 
 Honest, time-ordered numbers from `docs/metrics.json`. The earlier Random Forest
@@ -161,14 +162,21 @@ Regenerate with `python notebooks/eval_metrics.py --write` (same 954-day test fo
 | Random Forest | 0.799 | 0.734 | 0.264 | 0.070 | 0.618 |
 | XGBoost | 0.802 | 0.738 | 0.276 | 0.076 | 0.582 |
 | **Ensemble (default)** | **0.806** | **0.743** | 0.271 | 0.074 | 0.596 |
-| LSTM | *pending* | *pending* | *pending* | *pending* | *pending* |
+| LSTM | 0.804 | 0.741 | 0.338 | 0.114 | 0.371 |
+
+The LSTM row comes from `notebooks/FloodRiskPrediction_LSTM.ipynb`, not from
+`eval_metrics.py`. The 14-day window drops more early rows, so its fold is 953 days
+against 954: comparable in period and size, but not byte-identical. Because of that
+it is **not written into `docs/metrics.json`**, which is why `/models` returns it
+with `metrics: null`. Folding it into the shared script is future work.
 
 The tabular models sit within one F1 point of the persistence baseline, which is
 the honest headline of the project. The **ensemble** is the default because its
 soft-vote gives the best F1 and MCC of any model with stable calibration, while
-Random Forest keeps the best Brier/NSE. The LSTM row is pending (sequence model,
-evaluated in its own notebook). Note: the Logistic Regression numbers moved from
-the old 0.793 to 0.800 when regenerated against Manuela's week-10 scaled-LR model.
+Random Forest keeps the best Brier/NSE. The LSTM matches on F1 and MCC but its
+probabilities are the least calibrated (Brier 0.114). Note: the Logistic Regression
+numbers moved from the old 0.793 to 0.800 when regenerated against Manuela's
+week-10 scaled-LR model.
 
 ## Render deploy (unchanged from before)
 
@@ -193,7 +201,7 @@ state rather than blocking on the first prediction.
 
 ## CI (GitHub Actions)
 
-A ready workflow is in `ci.yml` — put it at `.github/workflows/ci.yml`. It installs
-`backend/requirements.txt` and runs `pytest` on every push and pull request. The
-tests are written to stay green even if the large model files aren't in the
-checkout, so CI won't break on a shallow clone.
+CI runs from `.github/workflows/ci.yml` on every push and pull request. It installs
+`backend/requirements.txt` and runs `pytest`. The tests are written to stay green
+even if the large model files aren't in the checkout, so CI won't break on a shallow
+clone.
